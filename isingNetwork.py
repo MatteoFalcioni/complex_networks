@@ -8,7 +8,7 @@ import multiprocessing
 
 class IsingModel():
     
-    def __init__(self, graph, J, iterations, initial_state):
+    def __init__(self, graph, J=1.0, iterations=10000, initial_state=1):
         
         self.name = "IsingModel"
         self.size = graph.number_of_nodes()
