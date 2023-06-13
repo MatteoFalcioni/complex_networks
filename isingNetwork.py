@@ -81,9 +81,9 @@ class IsingModel():
     def simulate(self, temperature, iterations=None,
                  magnetization_per_spin=True, 
                  energy=True,
-                 binder_cumulant=False,
-                 susceptibility_per_spin=False,
-                 specific_heat_per_spin=False):
+                 binder_cumulant=True,
+                 susceptibility_per_spin=True,
+                 specific_heat_per_spin=True):
         """Simulate the model at temperature T using a Metropolis algorithm.
         
         Parameters
@@ -157,9 +157,9 @@ class IsingModel():
     def viz(self, temperature, iterations=None,
             magnetization_per_spin=True, 
             energy=True,
-            binder_cumulant=False,
-            susceptibility_per_spin=False,
-            specific_heat_per_spin=False):
+            binder_cumulant=True,
+            susceptibility_per_spin=True,
+            specific_heat_per_spin=True):
         """Simulate and visualise the energy and magnetization wrt a temperature range.
         
         Parameters
