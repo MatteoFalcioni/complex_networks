@@ -52,7 +52,7 @@ class EuclidianNetwork:
         plt.show()
 
     def get_graph(self):
-        """Returns the graph created"""
+        """Returns the networkx graph created"""
         return self.graph
     
     def get_adjacency_matrix(self):
