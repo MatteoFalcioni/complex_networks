@@ -8,7 +8,7 @@ import multiprocessing
 
 class IsingModel():
     
-    def __init__(self, graph, J=1.0, iterations=10000, initial_state=1):
+    def __init__(self, graph, J=1.0, iterations=10000, initial_state=1, temperature_range=np.arange(0,10,0.1)):
         
         self.name = "IsingModel"
         self.N = graph.number_of_nodes()
@@ -16,6 +16,8 @@ class IsingModel():
         self.J = J
         self.iterations = iterations
         self.initial_state = initial_state
+        self.temperature_range = temperature_range
+        self.arr_of_data = None
         self.list_of_neigh = {}
         for node in self.graph.nodes():
             self.list_of_neigh[node] = list(self.graph.neighbors(node))
@@ -78,12 +80,7 @@ class IsingModel():
             s = -s
         self.state[rsnode] = s
         
-    def simulate(self, temperature, iterations=None,
-                 magnetization_per_spin=True, 
-                 energy=True,
-                 binder_cumulant=True,
-                 susceptibility_per_spin=True,
-                 specific_heat_per_spin=True):
+    def simulate(self, temperature, iterations=None):
         """Simulate the model at temperature T using a Metropolis algorithm.
         
         Parameters
@@ -92,21 +89,11 @@ class IsingModel():
             Temperature of the simulation.
         iterations: int
             Number of iteration of the simulation. If not specified, the value set on construction is used.
-        magnetization_per_spin: bool
-            Whether or not to simulate the magnetization per spin
-        energy: bool
-            Whether or not to simulate the energy
-        binder_cumulant: bool
-            Whether or not to simulate the binder cumulant
-        susceptibility_per_spin: bool
-            Whether or not to simulate the susceptibility per spin
-        specific_heat_per_spin: bool
-            Whether or not to simulate the specific heat per spin
         
         Returns
         ----------
-        data: tuple
-            Value of everything set up to true at the end of the simulation
+        data: dictionary
+            Value of all the quantities calculated.
 
         """
 
@@ -126,21 +113,18 @@ class IsingModel():
             m[i] = self.__netmag()/self.N
             E[i] = self.__netenergy()
 
-        if magnetization_per_spin:
-            data['magnetization_per_spin'] = self.__netmag()/self.N
-        if energy:
-            data['energy'] = self.__netenergy()
-        if binder_cumulant:
-            m4 = m**4
-            m2 = m**2
-            data['binder_cumulant'] = 1- m4.mean()/(3*(m2.mean()**2))
-        if susceptibility_per_spin:
-            M2 = M**2
-            #K_B = 1
-            data['susceptibility_per_spin'] = self.N/(1*temperature) * (M2.mean() - M.mean()**2)
-        if specific_heat_per_spin:
-            E2 = E**2
-            data['specific_heat_per_spin'] = self.N/((1*temperature)**2) * (E2.mean() - E.mean()**2)
+        data['magnetization_per_spin'] = self.__netmag()/self.N
+        data['energy'] = self.__netenergy()
+    
+        m4 = m**4
+        m2 = m**2
+        data['binder_cumulant'] = 1- m4.mean()/(3*(m2.mean()**2))
+    
+        M2 = M**2           #using K_B = 1
+        data['susceptibility_per_spin'] = self.N/(1*temperature) * (M2.mean() - M.mean()**2)
+    
+        E2 = E**2
+        data['specific_heat_per_spin'] = self.N/((1*temperature)**2) * (E2.mean() - E.mean()**2)
 
         return dict(data)
 
@@ -154,129 +138,93 @@ class IsingModel():
     #         if mag <= (0.75*self.orig_mag):
     #             return i
     
-    def viz(self, temperature, iterations=None,
-            magnetization_per_spin=True, 
-            energy=True,
-            binder_cumulant=True,
-            susceptibility_per_spin=True,
-            specific_heat_per_spin=True):
-        """Simulate and visualise the energy and magnetization wrt a temperature range.
+    def iterate(self, temperature_range=None, iterations=None, parallel=True, verbose=0):
+        """Run a simulation and calculate quantities wrt a temperature range.
         
         Parameters
         ----------
-        temperature: array_like
+        temperature_range: array_like
             Temperature range over which the model shall be simulated.
-            Parameters
         iterations: int
             Number of iteration of each simulation. If not specified, the value set on construction is used.
-        magnetization_per_spin: bool
-            Whether or not to simulate and graph the magnetization per spin
-        energy: bool
-            Whether or not to simulate and graph the energy
-        binder_cumulant: bool
-            Whether or not to simulate and graph the binder cumulant
-        susceptibility_per_spin: bool
-            Whether or not to simulate and graph the susceptibility per spin
-        specific_heat_per_spin: bool
-            Whether or not to simulate and graph the specific heat per spin
+        parallel: bool
+            Whether or not to simulate using python parallelization
         
         Returns
         ----------
-        arr_of_data: np.array of tuples
-            Everything set up to true. Each element is an array of the same lenght of temperature
+        self.arr_of_data: np.array of dictionaries
+            All data for each value of temperature. Each dictionary of the array contains the data of a specific temperature.
         """
 
-        if iterations == None:
+        if temperature_range is None:
+            temperature_range = self.temperature_range
+        if iterations is None:
             iterations = self.iterations
 
-        # np.array where each element is a tuple. Each tuple is a set of data (e.g. mag, energy and binder_cum)
-        # and we have a set of them, one for each temperature.
-        arr_of_data = np.zeros(len(temperature), dtype=dict)
-        
-        for i in tqdm(range(len(temperature))):
-            # print(" Temp : " + str(temperature[i]))
-            arr_of_data[i] = self.simulate(temperature[i], iterations,
-                                    magnetization_per_spin, energy, binder_cumulant, 
-                                    susceptibility_per_spin, specific_heat_per_spin)
+        if parallel:
+            num_cores = multiprocessing.cpu_count()
+            self.arr_of_data = Parallel(n_jobs=num_cores, verbose=verbose)(delayed(self.simulate)(i) for i in temperature_range)
+        else:
+            self.arr_of_data = np.zeros(len(temperature_range), dtype=dict)    
+            for i in tqdm(range(len(temperature_range))):
+                # print(" Temp : " + str(temperature[i]))
+                self.arr_of_data[i] = self.simulate(temperature_range[i], iterations)
 
-        if (magnetization_per_spin):
-            #extract the element 'magnetization_per_spin' for each element of arr_of_data -> get m over temperature
-            m = np.array([item['magnetization_per_spin'] for item in arr_of_data])
-
-            plt.figure()
-            plt.plot(temperature, m)
-            plt.xlabel('Temperature')
-            plt.ylabel('Magnetization per spin')
-            plt.title('Magnetization vs Temperature')
-        
-        if (energy):
-            E = np.array([item['energy'] for item in arr_of_data])
-            plt.figure()
-            plt.plot(temperature, E)
-            plt.xlabel('Temperature')
-            plt.ylabel('Energy')
-            plt.title('Energy vs Temperature')
-
-        if (binder_cumulant):
-            b = np.array([item['binder_cumulant'] for item in arr_of_data])
-            plt.figure()
-            plt.plot(temperature, b)
-            plt.xlabel('Temperature')
-            plt.ylabel('Binder cumulant')
-            plt.title('Binder cumulant vs Temperature')
-
-        if (susceptibility_per_spin):
-            s = np.array([item['susceptibility_per_spin'] for item in arr_of_data])
-            plt.figure()
-            plt.plot(temperature, s)
-            plt.xlabel('Temperature')
-            plt.ylabel('Scusceptibility per spin')
-            plt.title('Scusceptibility per spin vs Temperature')
-
-        if (specific_heat_per_spin):
-            s = np.array([item['specific_heat_per_spin'] for item in arr_of_data])
-            plt.figure()
-            plt.plot(temperature, s)
-            plt.xlabel('Temperature')
-            plt.ylabel('Specific heat per spin')
-            plt.title('Specific heat per spin vs Temperature')
-
-        return arr_of_data
-
-    def viz_parallel(self, temperature):
-        """Simulate and visualise the energy and magnetization wrt a temperature range with python parallelization.
-        
-        Parameters
-        ----------
-        temperature: array_like
-            Temperature range over which the model shall be simulated.
-        
-        Returns
-        ----------
-        Magnetization and Energy
-        """
-        mag = []
-        ene = []
-        num_cores = multiprocessing.cpu_count()
-        results = Parallel(n_jobs=num_cores)(delayed(self.simulate)(i) for i in temperature)
+        return self.arr_of_data
     
-        for cr in results:
-            mag.append(cr[0])
-            ene.append(cr[1])
+    def get_data(self, quantity):
+        """Return the data of given quantity (or quantities)
+        
+        Parameter:
+        quantity: str
+            The quantity that need to be returned.
+        
+        Return:
+        data: np.array
+            Array containing the quantity wrt self.temperature_range
+        """
 
-        plt.figure()
-        plt.plot(temperature, mag)
-        plt.xlabel('Temperature')
-        plt.ylabel('Magnetization')
-        plt.title('Magnetization vs Temperature')
+        if self.arr_of_data is None:
+            self.iterate()
 
-        plt.figure()
-        plt.plot(temperature, ene)
-        plt.xlabel('Temperature')
-        plt.ylabel('Energy')
-        plt.title('Energy vs Temperature')
+        data = np.array([item[quantity] for item in self.arr_of_data])
+        return data
+    
+    def get_temperature_range(self):
+        return self.temperature_range
 
-        return mag, ene
+    
+    def plot(self, quantities=None, ylabels=None):
+        """Plot the given quantity (or quantities) using matplotlib
+        
+        Parameters:
+        ----------
+        quantities: str, list of str
+            The quantity(s) that needs to be plotted. Both string and list of strings are accepted types.
+            By default, all the quantities are plotted
+        ylabel(s): str, list of str
+            The ylabel of each graph. By default, the name of the quantities is used
+
+        """
+        if quantities is None:
+            quantities = ['magnetization_per_spin','energy','binder_cumulant',
+                          'susceptibility_per_spin', 'specific_heat_per_spin']
+        elif isinstance(quantities, str):
+            # Convert the input to a list if it's a single string
+            quantities = [quantities]
+
+        if ylabels is None:
+            ylabels = quantities
+        elif isinstance(ylabels, str):
+            ylabels = [ylabels]
+
+        for quantity, ylabel in zip(quantities, ylabels):
+            data = np.array([item[quantity] for item in self.arr_of_data])
+            plt.figure()
+            plt.plot(self.temperature_range, data)
+            plt.xlabel('Temperature')
+            plt.ylabel(ylabel)
+            plt.title(ylabel + ' vs Temperature')
 
     # def viz_decay(self, N, temperature, ensemble=5):
     #     """A simulation which returns number of steps required for the magnetization in the network to decay to 0.75 of original value.

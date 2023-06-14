@@ -14,7 +14,9 @@ class EuclidianNetwork:
         angles = np.arange(0, 2 * pi, theta)
         self.positions = np.array([np.cos(angles), np.sin(angles)]).T
 
-    def generate_graph(self, delta=None):
+        self.__generate_graph()
+
+    def __generate_graph(self, delta=None):
         if delta is None:
             delta = self.delta
 
@@ -44,9 +46,6 @@ class EuclidianNetwork:
                 created_nodes += 1
 
     def show(self):
-        if self.graph is None:
-            self.generate_graph()
-
         plt.figure(figsize=(6, 6))
         nx.draw_circular(self.graph, with_labels=False, node_size=0)
         plt.show()
@@ -59,6 +58,10 @@ class EuclidianNetwork:
         """Returns the adjacency matrix of the graph"""
         return nx.adjacency_matrix(self.graph)
     
+    def set_delta(self, delta):
+        self.delta = delta
+        self.__generate_graph()
+    
     def show_adjacency_matrix(self, invertY=True):
         """Show the adjacency matrix with matplotlib
         
@@ -66,10 +69,13 @@ class EuclidianNetwork:
         inverder: bool
             set to true to have the (0,0) point to be 
             on the lowest-left corner (instead of upper left)
+        Return:
+        adj_matrix: nx.adjacency_matrix
+            The adjacency matrix of the graph
         """
 
-        adj_matrix = nx.adjacency_matrix(self.graph).toarray()
-        plt.imshow(adj_matrix, cmap='hot_r')
+        adj_matrix = nx.adjacency_matrix(self.graph)
+        plt.imshow(adj_matrix.toarray(), cmap='hot_r')
         
         if invertY:
             plt.gca().invert_yaxis()
@@ -77,6 +83,8 @@ class EuclidianNetwork:
         plt.xlabel('site i')
         plt.ylabel('site j')
         plt.show()
+
+        return adj_matrix
 
     @staticmethod
     def distance(point1, point2):
