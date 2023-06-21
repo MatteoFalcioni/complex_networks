@@ -75,9 +75,12 @@ class IsingModel():
         s = self.state[rsnode]                              # get the spin of this node
         ss = np.sum(self.state[self.list_of_neigh[rsnode]]) # sum of all neighbouring spins        
         delE = 2.0 * self.J * ss * s                        # transition energy
-        prob = math.exp(-delE * beta)                       # calculate transition probability
-        if prob > random.random():                          # conditionally accept the transition
-            s = -s
+        if delE < 0:
+            s = - s
+        else:
+            prob = math.exp(-delE * beta)                       # calculate transition probability
+            if random.random() < prob:                          # conditionally accept the transition
+                s = -s
         self.state[rsnode] = s
         
     def simulate(self, temperature, iterations=None):
@@ -107,7 +110,9 @@ class IsingModel():
     
         self.initialize(self.initial_state) # initialize spin vector    
     
-        for i in range(iterations):
+        for _ in range(int(iterations/2)):
+            self.__montecarlo(temperature)
+        for i in range(int(iterations/2)):
             self.__montecarlo(temperature)
             M[i] = self.__netmag()
             m[i] = self.__netmag()/self.N
@@ -140,7 +145,7 @@ class IsingModel():
     
     def iterate(self, temperature_range=None, iterations=None, parallel=True, verbose=0):
         """Run a simulation and calculate quantities wrt a temperature range.
-        
+
         Parameters
         ----------
         temperature_range: array_like
@@ -149,7 +154,10 @@ class IsingModel():
             Number of iteration of each simulation. If not specified, the value set on construction is used.
         parallel: bool
             Whether or not to simulate using python parallelization
-        
+        verbose: int, optional
+            The verbosity level: if non zero, progress messages are printed.
+            Above 50, the output is sent to stdout. The frequency of the messages increases with the verbosity level.
+            If it more than 10, all iterations are reported.
         Returns
         ----------
         self.arr_of_data: np.array of dictionaries
@@ -158,6 +166,9 @@ class IsingModel():
 
         if temperature_range is None:
             temperature_range = self.temperature_range
+        else:
+            self.temperature_range = temperature_range
+        
         if iterations is None:
             iterations = self.iterations
 
@@ -189,6 +200,16 @@ class IsingModel():
 
         data = np.array([item[quantity] for item in self.arr_of_data])
         return data
+    
+    def save(self, filename):
+        """Save simulation data in a file"""
+
+        np.save(filename, self.arr_of_data)
+
+    def load(self, filename):
+        """Load a previous simulation from a file"""
+
+        self.arr_of_data = np.load(filename)
     
     def get_temperature_range(self):
         return self.temperature_range
