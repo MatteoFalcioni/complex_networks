@@ -143,7 +143,7 @@ class IsingModel():
     #         if mag <= (0.75*self.orig_mag):
     #             return i
     
-    def iterate(self, temperature_range=None, iterations=None, parallel=True, verbose=0):
+    def iterate(self, temperature_range=None, iterations=None, simulations=1, parallel=True, verbose=0):
         """Run a simulation and calculate quantities wrt a temperature range.
 
         Parameters
@@ -171,15 +171,32 @@ class IsingModel():
         
         if iterations is None:
             iterations = self.iterations
+        else:
+            self.iterations = iterations
 
+        def calculate_means(temperature):
+            toBeMeaned = np.zeros(simulations, dtype=dict)
+            
+            for j in tqdm(range(simulations), leave=False):
+                toBeMeaned[j] = self.simulate(temperature_range[temperature], iterations)
+            
+            keys = ['magnetization_per_spin','energy','binder_cumulant',
+                    'susceptibility_per_spin', 'specific_heat_per_spin']
+            means = {}
+            for key in keys:
+                values = [d[key] for d in toBeMeaned]
+                means[key] = np.mean(values)
+            return means
+        
         if parallel:
             num_cores = multiprocessing.cpu_count()
-            self.arr_of_data = Parallel(n_jobs=num_cores, verbose=verbose)(delayed(self.simulate)(i) for i in temperature_range)
+            self.arr_of_data = Parallel(n_jobs=num_cores, verbose=verbose)(delayed(calculate_means)(i) for i in range(len(temperature_range)))
         else:
             self.arr_of_data = np.zeros(len(temperature_range), dtype=dict)    
+            
+            #for each temperature
             for i in tqdm(range(len(temperature_range))):
-                # print(" Temp : " + str(temperature[i]))
-                self.arr_of_data[i] = self.simulate(temperature_range[i], iterations)
+                self.arr_of_data[i] = calculate_means(i)
 
         return self.arr_of_data
     
