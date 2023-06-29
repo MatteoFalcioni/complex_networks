@@ -118,8 +118,8 @@ class IsingModel():
             m[i] = self.__netmag()/self.N
             E[i] = self.__netenergy()
 
-        data['magnetization_per_spin'] = self.__netmag()/self.N
-        data['energy'] = self.__netenergy()
+        data['magnetization_per_spin'] = m.mean()
+        data['energy'] = E.mean()
     
         m4 = m**4
         m2 = m**2
@@ -132,16 +132,6 @@ class IsingModel():
         data['specific_heat_per_spin'] = self.N/((1*temperature)**2) * (E2.mean() - E.mean()**2)
 
         return dict(data)
-
-    # def simulate_decay(self, temperature):
-        
-    #     self.initialize(self.initial_state)
-        
-    #     for i in range(self.iterations):
-    #         self.__montecarlo(temperature)
-    #         mag = self.__netmag()
-    #         if mag <= (0.75*self.orig_mag):
-    #             return i
     
     def iterate(self, temperature_range=None, iterations=None, simulations=1, parallel=True, verbose=0):
         """Run a simulation and calculate quantities wrt a temperature range.
@@ -263,85 +253,4 @@ class IsingModel():
             plt.xlabel('Temperature')
             plt.ylabel(ylabel)
             plt.title(ylabel + ' vs Temperature')
-
-    # def viz_decay(self, N, temperature, ensemble=5):
-    #     """A simulation which returns number of steps required for the magnetization in the network to decay to 0.75 of original value.
-
-    #     Parameters
-    #     ----------
-    #     N: int
-    #         Size of the network
-
-    #     temperature: array_like
-    #         Temperature range over which the model is simulated
-
-    #     ensemble: int
-    #         Number of samples from which the median is considered
-
-    #     Returns
-    #     -------
-    #     decay_time: ND array
-    #         Decay time array
-
-    #     """
-    #     self.orig_mag = N
-    #     tau = np.zeros(len(temperature))
-    #     tau_2 = np.zeros(ensemble)
-    #     for i in tqdm(range(len(temperature))):
-    #         for j in range(ensemble):
-    #             tau_2[j] = self.simulate_decay(temperature[i])
-    #         tau[i] = np.median(tau_2)
-            
-    #     plt.figure()
-    #     plt.style.use('seaborn-whitegrid')
-    #     plt.plot(temperature, tau, 'x')
-    #     plt.xlabel('Temperature')
-    #     plt.ylabel('Tau')
-    #     plt.xscale('log')
-    #     plt.yscale('log')
-        
-    #     return tau
-
-    # def curie_temp(self, end, ensemble, start=0.1, threshold=0.1):
-    #     """Determines the Curie temperature / critical temperature
-
-    #     Parameters
-    #     ----------
-
-    #     end: float
-    #         upper limit of the temperature range
-
-    #     ensemble: int
-    #         number of samples from which the median is evaluated
-
-    #     start: float
-    #         lower limit of the temperature range
-
-    #     threshold: float
-    #         value to which the original magnetization must decay at the Curie temperature
-    #     """
-        
-    #     orig_mag = self.N
-        
-    #     step_size = (end - start)/30
-        
-    #     res = np.zeros(ensemble)
-        
-    #     temperature = np.arange(start, end, step_size)
-    #     for t in tqdm(range(ensemble)):
-    #         for i in tqdm(range(len(temperature))):
-    #             # print(" Temp : " + str(temperature[i]))
-    #             mag = self.simulate(temperature[i], energy = False)
-    #             if mag < threshold:
-    #                 res[t] = temperature[i]
-    #                 break                    
-                    
-    #     return np.median(res)
-
-    # def mean_degree(self, directed=False):
-	        
-    #     n_edges = self.graph.number_of_edges()
-    #     if directed == True:
-    #         return n_edges/self.N
-    #     return (2*n_edges/self.N)
     
