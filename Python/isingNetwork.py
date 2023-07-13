@@ -148,6 +148,7 @@ class IsingModel():
             The verbosity level: if non zero, progress messages are printed.
             Above 50, the output is sent to stdout. The frequency of the messages increases with the verbosity level.
             If it more than 10, all iterations are reported.
+            
         Returns
         ----------
         self.arr_of_data: np.array of dictionaries
