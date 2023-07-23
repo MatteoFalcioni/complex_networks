@@ -8,7 +8,8 @@ import multiprocessing
 
 class IsingModel():
     
-    def __init__(self, graph, J=1.0, iterations=10000, initial_state=1, temperature_range=np.arange(0,10,0.1)):
+    def __init__(self, graph, J=1.0, iterations=10000, temperature_range=np.arange(0,10,0.1), 
+                 simmetric = True, external_field = 0, initial_state=1):
         
         self.name = "IsingModel"
         self.N = graph.number_of_nodes()
@@ -17,6 +18,8 @@ class IsingModel():
         self.iterations = iterations
         self.initial_state = initial_state
         self.temperature_range = temperature_range
+        self.simmetric = simmetric
+        self.h = external_field
         self.arr_of_data = None
         self.list_of_neigh = {}
         for node in self.graph.nodes():
@@ -57,6 +60,9 @@ class IsingModel():
             raise Exception("initial_state should be between 0 and 1")
         
         self.initial_state = initial_state
+
+    def set_external_field(self, external_field):
+        self.h = external_field
     
     def __netmag(self):
         
@@ -67,21 +73,31 @@ class IsingModel():
         for i in range(self.N):
             ss = np.sum(self.state[self.list_of_neigh[i]])
             en += self.state[i] * ss
-        return -0.5 * self.J * en
+        return -0.5 * self.J * en - self.h * self.__netmag()
     
+    def __changeS(self, s):
+        if (self.simmetric):
+            return -s
+        if (s == 0):
+            return 1
+        return 0
+
     def __montecarlo(self, temperature):
         beta = 1/temperature
-        rsnode = np.random.randint(0, self.N)            # pick a random source node
+        rsnode = np.random.randint(0, self.N)               # pick a random source node    
         s = self.state[rsnode]                              # get the spin of this node
-        ss = np.sum(self.state[self.list_of_neigh[rsnode]]) # sum of all neighbouring spins        
-        delE = 2.0 * self.J * ss * s                        # transition energy
+        ss = np.sum(self.state[self.list_of_neigh[rsnode]]) # sum of all neighbouring spins
+
+        newS = self.__changeS(s)
+        delE = (-0.5* self.J * ss - self.h) * (s - newS)    # transition energy
+        
         if delE < 0:
-            s = - s
-        else:
-            prob = math.exp(-delE * beta)                       # calculate transition probability
-            if random.random() < prob:                          # conditionally accept the transition
-                s = -s
-        self.state[rsnode] = s
+            self.state[rsnode] = self.__changeS(s)
+            return
+            
+        prob = math.exp(-delE * beta)                       # calculate transition probability
+        if random.random() < prob:                          # conditionally accept the transition
+            self.state[rsnode] = self.__changeS(s)
         
     def simulate(self, temperature, iterations=None):
         """Simulate the model at temperature T using a Metropolis algorithm.
@@ -105,19 +121,20 @@ class IsingModel():
 
         data = {}   #empty dictionary
         M = np.zeros(iterations)
-        m = np.zeros(iterations)
+        #m = np.zeros(iterations)
         E = np.zeros(iterations)
     
         self.initialize(self.initial_state) # initialize spin vector    
     
-        for _ in range(int(iterations/2)):
+        for _ in tqdm(range(int(iterations/2))):
             self.__montecarlo(temperature)
-        for i in range(int(iterations/2)):
+        for i in tqdm(range(int(iterations/2))):
             self.__montecarlo(temperature)
             M[i] = self.__netmag()
-            m[i] = self.__netmag()/self.N
+            #m[i] = self.__netmag()/self.N
             E[i] = self.__netenergy()
 
+        m = M/self.N
         data['magnetization_per_spin'] = m.mean()
         data['energy'] = E.mean()
     
