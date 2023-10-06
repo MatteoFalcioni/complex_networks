@@ -9,7 +9,7 @@ import multiprocessing
 class IsingModel():
     
     def __init__(self, graph, J=1.0, iterations=10000, temperature_range=np.arange(0,10,0.1), 
-                 simmetric = True, external_field = 0, initial_state=1):
+                 simmetric = True, external_field = 0.0, initial_state=1):
         
         self.name = "IsingModel"
         self.N = graph.number_of_nodes()
@@ -204,7 +204,7 @@ class IsingModel():
             
             #for each temperature
             for i in tqdm(range(len(temperature_range))):
-                self.arr_of_data[i] = calculate_means(i)
+                self.arr_of_data[i] = calculate_means(temperature_range[i])
 
         return self.arr_of_data
     
